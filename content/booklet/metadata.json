@@ -1,0 +1,80 @@
+{
+  "title": "חוברת הסברה - משיאים ושיטת Lovest",
+  "subtitle": "מדריך מקוצר",
+  "author": "",
+  "version": "1.0.0",
+  "language": "he",
+  "direction": "rtl",
+  "createdAt": "2026-02-02",
+  "updatedAt": "2026-02-02",
+  "status": "draft",
+  "wordCountGoal": 10000,
+  "chapters": [
+    {
+      "id": "01",
+      "title": "שער",
+      "file": "01-שער.md",
+      "status": "ready"
+    },
+    {
+      "id": "02",
+      "title": "הבעיה - האתגר של 1.6 מיליון",
+      "file": "02-הבעיה.md",
+      "status": "ready"
+    },
+    {
+      "id": "03",
+      "title": "שני כשלים - גמ\"ח לבדו / שוק לבדו",
+      "file": "03-שני-כשלים.md",
+      "status": "ready"
+    },
+    {
+      "id": "04",
+      "title": "הפתרון - שיטת Lovest",
+      "file": "04-הפתרון.md",
+      "status": "ready"
+    },
+    {
+      "id": "05",
+      "title": "איך זה עובד - 4 שלבים",
+      "file": "05-ארבעה-שלבים.md",
+      "status": "ready"
+    },
+    {
+      "id": "06",
+      "title": "המספרים - דוגמה מעשית",
+      "file": "06-המספרים.md",
+      "status": "ready"
+    },
+    {
+      "id": "07",
+      "title": "השוואה - לבד מול משיאים",
+      "file": "07-טבלת-השוואה.md",
+      "status": "ready"
+    },
+    {
+      "id": "08",
+      "title": "שאלות ותשובות",
+      "file": "08-שאלות-ותשובות.md",
+      "status": "ready"
+    },
+    {
+      "id": "09",
+      "title": "מי עומד מאחורי",
+      "file": "09-מי-עומד-מאחורי.md",
+      "status": "ready"
+    },
+    {
+      "id": "10",
+      "title": "הסימולטור - איך מתחילים",
+      "file": "10-הסימולטור.md",
+      "status": "ready"
+    },
+    {
+      "id": "11",
+      "title": "סיום ופרטי התקשרות",
+      "file": "11-סיום.md",
+      "status": "ready"
+    }
+  ]
+}

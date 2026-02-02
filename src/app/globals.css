@@ -1,26 +1,164 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: "Noto Sans Hebrew", system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* RTL support for Monaco Editor */
+.monaco-editor .view-lines {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.monaco-editor .view-line {
+  direction: rtl !important;
+}
+
+/* Force black text color */
+.monaco-editor,
+.monaco-editor .view-line,
+.monaco-editor .view-line span,
+.monaco-editor .mtk1,
+.monaco-editor .lines-content,
+.monaco-editor .inputarea {
+  color: #000000 !important;
+}
+
+/* Prose styles for markdown preview and TipTap editor */
+.prose {
+  direction: rtl;
+  text-align: right;
+}
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  direction: rtl;
+  text-align: right;
+  min-height: 100%;
+  padding: 1rem;
+  font-family: 'Noto Sans Hebrew', 'David', sans-serif;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+.ProseMirror p {
+  margin: 0.75em 0;
+}
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+  color: #1e40af;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.8em 0 0.4em;
+  color: #1e3a8a;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin: 0.6em 0 0.3em;
+  color: #1e3a8a;
+}
+
+.ProseMirror strong {
+  font-weight: bold;
+}
+
+.ProseMirror em {
+  font-style: italic;
+}
+
+.ProseMirror u {
+  text-decoration: underline;
+}
+
+.ProseMirror blockquote {
+  border-right: 4px solid #3b82f6;
+  padding-right: 1rem;
+  margin: 1rem 0;
+  color: #4b5563;
+  font-style: italic;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 0 8px 8px 0;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-right: 1.5rem;
+  margin: 0.5em 0;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-right: 1.5rem;
+  margin: 0.5em 0;
+}
+
+.ProseMirror li {
+  margin: 0.25em 0;
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid #e5e7eb;
+  margin: 2rem 0;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: right;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+.prose blockquote {
+  border-right: 4px solid #f59e0b;
+  border-left: none;
+  padding-right: 1rem;
+  padding-left: 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-right: 1.5rem;
+  padding-left: 0;
 }

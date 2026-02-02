@@ -1,36 +1,125 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# מערכת כתיבת ספר - משיאים ושיטת Lovest
 
-## Getting Started
+מערכת כתיבה ועריכה מותאמת אישית לספר וחוברת על מיזם משיאים ושיטת Lovest.
 
-First, run the development server:
+## התקנה והפעלה
 
 ```bash
+# התקנת תלויות
+npm install
+
+# הפעלת השרת
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+פתח את [http://localhost:3000](http://localhost:3000) בדפדפן.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## יכולות
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### עריכה
+- עורך Monaco Editor עם תמיכה מלאה ב-RTL
+- תצוגה מקדימה של Markdown בזמן אמת
+- שמירה אוטומטית כל 30 שניות
+- מצב מיקוד לכתיבה ללא הסחות
+- קיצורי מקלדת (Ctrl+B לבולד, Ctrl+I לנטוי, Ctrl+S לשמירה)
 
-## Learn More
+### ניהול פרקים
+- גרירה לשינוי סדר פרקים
+- סטטוס לכל פרק: טיוטה / בעריכה / מוכן
+- ספירת מילים לכל פרק ולכל הספר
+- הערות עורך לכל פרק
 
-To learn more about Next.js, take a look at the following resources:
+### ניהול מקורות
+- העלאת קבצים (PDF, Word, TXT, MD)
+- תיוג וקטלוג
+- חיפוש בתוך המקורות
+- קטעים מועדפים
+- קישור מקור לפרק רלוונטי
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### גרסאות
+- שמירת גרסה ידנית עם תיאור
+- צילום מצב של כל הפרקים
+- גישה מהירה לגרסאות קודמות
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ייצוא
+- ייצוא ל-PDF עם עיצוב מקצועי
+- ייצוא לאתר סטטי לקריאה אונליין
+- תוכן עניינים אוטומטי
 
-## Deploy on Vercel
+## מבנה הפרויקט
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+lovest-book/
+├── src/
+│   ├── app/                 # Next.js App Router
+│   │   ├── api/             # API Routes
+│   │   │   ├── chapters/    # ניהול פרקים
+│   │   │   ├── sources/     # ניהול מקורות
+│   │   │   ├── versions/    # ניהול גרסאות
+│   │   │   ├── quotes/      # בנק ציטוטים
+│   │   │   ├── settings/    # הגדרות
+│   │   │   ├── stats/       # סטטיסטיקות
+│   │   │   └── export/      # ייצוא PDF/Web
+│   │   ├── page.tsx         # עמוד ראשי
+│   │   └── layout.tsx       # Layout
+│   ├── components/          # קומפוננטות React
+│   │   ├── editor/          # עורך הטקסט
+│   │   ├── chapters/        # ניהול פרקים
+│   │   ├── sources/         # ניהול מקורות
+│   │   ├── versions/        # ניהול גרסאות
+│   │   └── export/          # ייצוא
+│   └── lib/                 # Utilities
+│       ├── db.ts            # מסד נתונים SQLite
+│       └── utils.ts         # פונקציות עזר
+├── content/                 # התוכן
+│   ├── book/                # ספר מלא
+│   │   ├── chapters/        # פרקים
+│   │   └── metadata.json
+│   └── booklet/             # חוברת
+│       └── chapters/
+├── sources/                 # חומרי גלם
+│   ├── notebooklm/
+│   ├── docs/
+│   ├── notes/
+│   ├── website/
+│   └── other/
+├── versions/                # גרסאות שמורות
+├── output/                  # פלט סופי
+│   ├── pdf/
+│   └── web/
+└── data/                    # מסד נתונים
+    └── book.db
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## טכנולוגיות
+
+- **Frontend:** Next.js 14 + React + Tailwind CSS
+- **עורך:** Monaco Editor
+- **מסד נתונים:** SQLite (better-sqlite3)
+- **PDF:** Puppeteer
+- **Drag & Drop:** dnd-kit
+
+## קיצורי מקלדת
+
+| קיצור | פעולה |
+|-------|-------|
+| Ctrl+S | שמירה |
+| Ctrl+B | מודגש |
+| Ctrl+I | נטוי |
+| Ctrl+U | קו תחתון |
+| Escape | יציאה ממצב מיקוד |
+
+## פיתוח
+
+הפרויקט נפרד לגמרי מאתר משיאים הראשי ורץ על המחשב המקומי.
+
+```bash
+# פיתוח
+npm run dev
+
+# בנייה
+npm run build
+
+# הפעלה בפרודקשן
+npm start
+```
