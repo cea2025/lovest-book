@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db, { Version } from '@/lib/db';
+import { sql, Version, Chapter, initDatabase } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import path from 'path';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 // GET - List all versions
 export async function GET(request: NextRequest) {
   try {
+    await ensureDb();
     const { searchParams } = new URL(request.url);
     const bookType = searchParams.get('bookType') || 'book';
 
-    const versions = db
-      .prepare('SELECT * FROM versions WHERE book_type = ? ORDER BY created_at DESC')
-      .all(bookType) as Version[];
+    const versions = await sql`
+      SELECT * FROM versions WHERE book_type = ${bookType} ORDER BY created_at DESC
+    ` as Version[];
 
     return NextResponse.json(versions);
   } catch (error) {
@@ -21,9 +29,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new version snapshot
+// POST - Create new version snapshot (simplified - stores in DB only, no file system)
 export async function POST(request: NextRequest) {
   try {
+    await ensureDb();
     const body = await request.json();
     const { bookType = 'book', versionName, description = '' } = body;
 
@@ -31,66 +40,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Version name is required' }, { status: 400 });
     }
 
-    // Create version directory
+    // Get all chapters
+    const chapters = await sql`
+      SELECT * FROM chapters WHERE book_type = ${bookType} ORDER BY order_index ASC
+    ` as Chapter[];
+
+    // Create snapshot path (stored as JSON in DB for serverless compatibility)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const versionDir = path.join(process.cwd(), 'versions', `${timestamp}_${versionName}`);
-    fs.mkdirSync(versionDir, { recursive: true });
-
-    // Copy all chapters
-    const chapters = db
-      .prepare('SELECT * FROM chapters WHERE book_type = ? ORDER BY order_index ASC')
-      .all(bookType);
-
-    const chaptersDir = path.join(versionDir, 'chapters');
-    fs.mkdirSync(chaptersDir, { recursive: true });
-
-    chapters.forEach((chapter: any, index: number) => {
-      const chapterFile = path.join(chaptersDir, `${String(index + 1).padStart(2, '0')}-${chapter.slug}.md`);
-      const content = `---
-title: ${chapter.title}
-status: ${chapter.status}
-word_count: ${chapter.word_count}
-notes: |
-${chapter.notes.split('\n').map((line: string) => '  ' + line).join('\n')}
----
-
-${chapter.content}
-`;
-      fs.writeFileSync(chapterFile, content, 'utf-8');
-    });
-
-    // Save metadata
-    const metadata = {
-      bookType,
-      versionName,
-      description,
-      createdAt: new Date().toISOString(),
-      chapterCount: chapters.length,
-      totalWords: chapters.reduce((sum: number, c: any) => sum + c.word_count, 0),
-    };
-    fs.writeFileSync(path.join(versionDir, 'metadata.json'), JSON.stringify(metadata, null, 2), 'utf-8');
+    const snapshotPath = `snapshot_${timestamp}_${versionName}`;
 
     // Save to database
     const version: Version = {
       id: uuidv4(),
       book_type: bookType,
       version_name: versionName,
-      description,
-      snapshot_path: versionDir,
+      description: description + '\n\n---SNAPSHOT---\n' + JSON.stringify(chapters),
+      snapshot_path: snapshotPath,
       created_at: new Date().toISOString(),
     };
 
-    db.prepare(`
+    await sql`
       INSERT INTO versions (id, book_type, version_name, description, snapshot_path, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      version.id,
-      version.book_type,
-      version.version_name,
-      version.description,
-      version.snapshot_path,
-      version.created_at
-    );
+      VALUES (${version.id}, ${version.book_type}, ${version.version_name}, ${version.description}, ${version.snapshot_path}, ${version.created_at})
+    `;
 
     return NextResponse.json(version, { status: 201 });
   } catch (error) {

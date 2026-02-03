@@ -1,17 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db, { Chapter } from '@/lib/db';
+import { sql, Chapter, initDatabase } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import { countWords, generateSlug } from '@/lib/utils';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 // GET - List all chapters
 export async function GET(request: NextRequest) {
   try {
+    await ensureDb();
     const { searchParams } = new URL(request.url);
     const bookType = searchParams.get('bookType') || 'book';
 
-    const chapters = db
-      .prepare('SELECT * FROM chapters WHERE book_type = ? ORDER BY order_index ASC')
-      .all(bookType) as Chapter[];
+    const chapters = await sql`
+      SELECT * FROM chapters 
+      WHERE book_type = ${bookType} 
+      ORDER BY order_index ASC
+    ` as Chapter[];
 
     return NextResponse.json(chapters);
   } catch (error) {
@@ -23,6 +35,7 @@ export async function GET(request: NextRequest) {
 // POST - Create new chapter
 export async function POST(request: NextRequest) {
   try {
+    await ensureDb();
     const body = await request.json();
     const { title, bookType = 'book', content = '' } = body;
 
@@ -31,9 +44,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get max order index
-    const maxOrder = db
-      .prepare('SELECT MAX(order_index) as max FROM chapters WHERE book_type = ?')
-      .get(bookType) as { max: number | null };
+    const maxOrderResult = await sql`
+      SELECT MAX(order_index) as max FROM chapters WHERE book_type = ${bookType}
+    `;
+    const maxOrder = maxOrderResult[0]?.max ?? -1;
 
     const chapter: Chapter = {
       id: uuidv4(),
@@ -41,7 +55,7 @@ export async function POST(request: NextRequest) {
       title,
       slug: generateSlug(title),
       content,
-      order_index: (maxOrder?.max ?? -1) + 1,
+      order_index: maxOrder + 1,
       status: 'draft',
       word_count: countWords(content),
       notes: '',
@@ -49,22 +63,10 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    db.prepare(`
+    await sql`
       INSERT INTO chapters (id, book_type, title, slug, content, order_index, status, word_count, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      chapter.id,
-      chapter.book_type,
-      chapter.title,
-      chapter.slug,
-      chapter.content,
-      chapter.order_index,
-      chapter.status,
-      chapter.word_count,
-      chapter.notes,
-      chapter.created_at,
-      chapter.updated_at
-    );
+      VALUES (${chapter.id}, ${chapter.book_type}, ${chapter.title}, ${chapter.slug}, ${chapter.content}, ${chapter.order_index}, ${chapter.status}, ${chapter.word_count}, ${chapter.notes}, ${chapter.created_at}, ${chapter.updated_at})
+    `;
 
     return NextResponse.json(chapter, { status: 201 });
   } catch (error) {

@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { sql, initDatabase } from '@/lib/db';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 // GET - Get all settings
 export async function GET() {
   try {
-    const rows = db.prepare('SELECT * FROM settings').all() as { key: string; value: string }[];
+    await ensureDb();
+    const rows = await sql`SELECT * FROM settings` as { key: string; value: string }[];
     
     const settings: Record<string, string> = {};
     rows.forEach(row => {
@@ -21,22 +31,17 @@ export async function GET() {
 // PUT - Update settings
 export async function PUT(request: NextRequest) {
   try {
+    await ensureDb();
     const body = await request.json();
 
-    const upsert = db.prepare(`
-      INSERT INTO settings (key, value) VALUES (?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `);
+    for (const [key, value] of Object.entries(body)) {
+      await sql`
+        INSERT INTO settings (key, value) VALUES (${key}, ${String(value)})
+        ON CONFLICT(key) DO UPDATE SET value = ${String(value)}
+      `;
+    }
 
-    const updateMany = db.transaction(() => {
-      for (const [key, value] of Object.entries(body)) {
-        upsert.run(key, String(value));
-      }
-    });
-
-    updateMany();
-
-    const rows = db.prepare('SELECT * FROM settings').all() as { key: string; value: string }[];
+    const rows = await sql`SELECT * FROM settings` as { key: string; value: string }[];
     const settings: Record<string, string> = {};
     rows.forEach(row => {
       settings[row.key] = row.value;

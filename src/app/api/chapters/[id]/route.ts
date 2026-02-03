@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db, { Chapter } from '@/lib/db';
+import { sql, Chapter, initDatabase } from '@/lib/db';
 import { countWords, generateSlug } from '@/lib/utils';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 // GET - Get single chapter
 export async function GET(
@@ -8,10 +17,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDb();
     const { id } = await params;
-    const chapter = db
-      .prepare('SELECT * FROM chapters WHERE id = ?')
-      .get(id) as Chapter | undefined;
+    const chapters = await sql`SELECT * FROM chapters WHERE id = ${id}`;
+    const chapter = chapters[0] as Chapter | undefined;
 
     if (!chapter) {
       return NextResponse.json({ error: 'Chapter not found' }, { status: 404 });
@@ -30,43 +39,42 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDb();
     const { id } = await params;
     const body = await request.json();
     const { title, content, status, notes, order_index } = body;
 
-    const existing = db
-      .prepare('SELECT * FROM chapters WHERE id = ?')
-      .get(id) as Chapter | undefined;
+    const existingChapters = await sql`SELECT * FROM chapters WHERE id = ${id}`;
+    const existing = existingChapters[0] as Chapter | undefined;
 
     if (!existing) {
       return NextResponse.json({ error: 'Chapter not found' }, { status: 404 });
     }
 
-    const updates: Partial<Chapter> = {
-      updated_at: new Date().toISOString(),
-    };
+    const updatedAt = new Date().toISOString();
+    const newTitle = title !== undefined ? title : existing.title;
+    const newSlug = title !== undefined ? generateSlug(title) : existing.slug;
+    const newContent = content !== undefined ? content : existing.content;
+    const newWordCount = content !== undefined ? countWords(content) : existing.word_count;
+    const newStatus = status !== undefined ? status : existing.status;
+    const newNotes = notes !== undefined ? notes : existing.notes;
+    const newOrderIndex = order_index !== undefined ? order_index : existing.order_index;
 
-    if (title !== undefined) {
-      updates.title = title;
-      updates.slug = generateSlug(title);
-    }
-    if (content !== undefined) {
-      updates.content = content;
-      updates.word_count = countWords(content);
-    }
-    if (status !== undefined) updates.status = status;
-    if (notes !== undefined) updates.notes = notes;
-    if (order_index !== undefined) updates.order_index = order_index;
+    await sql`
+      UPDATE chapters 
+      SET title = ${newTitle}, 
+          slug = ${newSlug}, 
+          content = ${newContent}, 
+          word_count = ${newWordCount}, 
+          status = ${newStatus}, 
+          notes = ${newNotes}, 
+          order_index = ${newOrderIndex}, 
+          updated_at = ${updatedAt}
+      WHERE id = ${id}
+    `;
 
-    const setClauses = Object.keys(updates)
-      .map(key => `${key} = ?`)
-      .join(', ');
-    const values = [...Object.values(updates), id];
-
-    db.prepare(`UPDATE chapters SET ${setClauses} WHERE id = ?`).run(...values);
-
-    const updated = db.prepare('SELECT * FROM chapters WHERE id = ?').get(id);
-    return NextResponse.json(updated);
+    const updatedChapters = await sql`SELECT * FROM chapters WHERE id = ${id}`;
+    return NextResponse.json(updatedChapters[0]);
   } catch (error) {
     console.error('Error updating chapter:', error);
     return NextResponse.json({ error: 'Failed to update chapter' }, { status: 500 });
@@ -79,26 +87,26 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDb();
     const { id } = await params;
     
-    const existing = db
-      .prepare('SELECT * FROM chapters WHERE id = ?')
-      .get(id) as Chapter | undefined;
+    const existingChapters = await sql`SELECT * FROM chapters WHERE id = ${id}`;
+    const existing = existingChapters[0] as Chapter | undefined;
 
     if (!existing) {
       return NextResponse.json({ error: 'Chapter not found' }, { status: 404 });
     }
 
-    db.prepare('DELETE FROM chapters WHERE id = ?').run(id);
+    await sql`DELETE FROM chapters WHERE id = ${id}`;
 
     // Reorder remaining chapters
-    const remaining = db
-      .prepare('SELECT id FROM chapters WHERE book_type = ? ORDER BY order_index ASC')
-      .all(existing.book_type) as { id: string }[];
+    const remaining = await sql`
+      SELECT id FROM chapters WHERE book_type = ${existing.book_type} ORDER BY order_index ASC
+    ` as { id: string }[];
 
-    remaining.forEach((chapter, index) => {
-      db.prepare('UPDATE chapters SET order_index = ? WHERE id = ?').run(index, chapter.id);
-    });
+    for (let i = 0; i < remaining.length; i++) {
+      await sql`UPDATE chapters SET order_index = ${i} WHERE id = ${remaining[i].id}`;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

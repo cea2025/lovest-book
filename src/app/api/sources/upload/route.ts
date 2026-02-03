@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 import path from 'path';
-import db from '@/lib/db';
+import { sql, Source, initDatabase } from '@/lib/db';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
+    await ensureDb();
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const category = formData.get('category') as string;
@@ -24,15 +33,9 @@ export async function POST(request: NextRequest) {
     const ext = path.extname(file.name);
     const uniqueFilename = `${uuidv4()}${ext}`;
     
-    // Save file
-    const uploadDir = path.join(process.cwd(), 'sources', category);
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadDir, uniqueFilename);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    // Note: In serverless environment, we can't save files locally
+    // The file data would need to be stored in blob storage (like Vercel Blob)
+    // For now, we just create the database entry
 
     // Determine file type
     const fileType = getFileType(ext);
@@ -41,12 +44,12 @@ export async function POST(request: NextRequest) {
     const parsedTags = tags ? JSON.parse(tags) : [];
 
     // Create database entry
-    const source = {
+    const source: Source = {
       id: uuidv4(),
       filename: uniqueFilename,
       original_name: file.name,
       file_type: fileType,
-      category,
+      category: category as 'notebooklm' | 'docs' | 'notes' | 'website' | 'other',
       tags: parsedTags,
       highlights: [],
       linked_chapters: [],
@@ -54,21 +57,10 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
     };
 
-    db.prepare(`
+    await sql`
       INSERT INTO sources (id, filename, original_name, file_type, category, tags, highlights, linked_chapters, file_size, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      source.id,
-      source.filename,
-      source.original_name,
-      source.file_type,
-      source.category,
-      JSON.stringify(source.tags),
-      JSON.stringify(source.highlights),
-      JSON.stringify(source.linked_chapters),
-      source.file_size,
-      source.created_at
-    );
+      VALUES (${source.id}, ${source.filename}, ${source.original_name}, ${source.file_type}, ${source.category}, ${JSON.stringify(source.tags)}, ${JSON.stringify(source.highlights)}, ${JSON.stringify(source.linked_chapters)}, ${source.file_size}, ${source.created_at})
+    `;
 
     return NextResponse.json(source, { status: 201 });
   } catch (error) {

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db, { Source } from '@/lib/db';
-import fs from 'fs';
-import path from 'path';
+import { sql, Source, initDatabase } from '@/lib/db';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 // GET - Get single source
 export async function GET(
@@ -9,10 +16,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDb();
     const { id } = await params;
-    const source = db
-      .prepare('SELECT * FROM sources WHERE id = ?')
-      .get(id) as Source | undefined;
+    const sources = await sql`SELECT * FROM sources WHERE id = ${id}`;
+    const source = sources[0] as Source | undefined;
 
     if (!source) {
       return NextResponse.json({ error: 'Source not found' }, { status: 404 });
@@ -20,9 +27,9 @@ export async function GET(
 
     const parsed = {
       ...source,
-      tags: JSON.parse(source.tags as unknown as string || '[]'),
-      highlights: JSON.parse(source.highlights as unknown as string || '[]'),
-      linked_chapters: JSON.parse(source.linked_chapters as unknown as string || '[]'),
+      tags: typeof source.tags === 'string' ? JSON.parse(source.tags) : source.tags || [],
+      highlights: typeof source.highlights === 'string' ? JSON.parse(source.highlights) : source.highlights || [],
+      linked_chapters: typeof source.linked_chapters === 'string' ? JSON.parse(source.linked_chapters) : source.linked_chapters || [],
     };
 
     return NextResponse.json(parsed);
@@ -38,40 +45,35 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDb();
     const { id } = await params;
     const body = await request.json();
     const { tags, highlights, linked_chapters } = body;
 
-    const existing = db
-      .prepare('SELECT * FROM sources WHERE id = ?')
-      .get(id) as Source | undefined;
+    const existingSources = await sql`SELECT * FROM sources WHERE id = ${id}`;
+    const existing = existingSources[0] as Source | undefined;
 
     if (!existing) {
       return NextResponse.json({ error: 'Source not found' }, { status: 404 });
     }
 
-    const updates: Record<string, string> = {};
-    if (tags !== undefined) updates.tags = JSON.stringify(tags);
-    if (highlights !== undefined) updates.highlights = JSON.stringify(highlights);
-    if (linked_chapters !== undefined) updates.linked_chapters = JSON.stringify(linked_chapters);
+    const newTags = tags !== undefined ? JSON.stringify(tags) : (typeof existing.tags === 'string' ? existing.tags : JSON.stringify(existing.tags || []));
+    const newHighlights = highlights !== undefined ? JSON.stringify(highlights) : (typeof existing.highlights === 'string' ? existing.highlights : JSON.stringify(existing.highlights || []));
+    const newLinkedChapters = linked_chapters !== undefined ? JSON.stringify(linked_chapters) : (typeof existing.linked_chapters === 'string' ? existing.linked_chapters : JSON.stringify(existing.linked_chapters || []));
 
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
-    }
+    await sql`
+      UPDATE sources 
+      SET tags = ${newTags}, highlights = ${newHighlights}, linked_chapters = ${newLinkedChapters}
+      WHERE id = ${id}
+    `;
 
-    const setClauses = Object.keys(updates)
-      .map(key => `${key} = ?`)
-      .join(', ');
-    const values = [...Object.values(updates), id];
-
-    db.prepare(`UPDATE sources SET ${setClauses} WHERE id = ?`).run(...values);
-
-    const updated = db.prepare('SELECT * FROM sources WHERE id = ?').get(id) as Source;
+    const updatedSources = await sql`SELECT * FROM sources WHERE id = ${id}`;
+    const updated = updatedSources[0] as Source;
     const parsed = {
       ...updated,
-      tags: JSON.parse(updated.tags as unknown as string || '[]'),
-      highlights: JSON.parse(updated.highlights as unknown as string || '[]'),
-      linked_chapters: JSON.parse(updated.linked_chapters as unknown as string || '[]'),
+      tags: typeof updated.tags === 'string' ? JSON.parse(updated.tags) : updated.tags || [],
+      highlights: typeof updated.highlights === 'string' ? JSON.parse(updated.highlights) : updated.highlights || [],
+      linked_chapters: typeof updated.linked_chapters === 'string' ? JSON.parse(updated.linked_chapters) : updated.linked_chapters || [],
     };
 
     return NextResponse.json(parsed);
@@ -87,23 +89,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await ensureDb();
     const { id } = await params;
     
-    const existing = db
-      .prepare('SELECT * FROM sources WHERE id = ?')
-      .get(id) as Source | undefined;
+    const existingSources = await sql`SELECT * FROM sources WHERE id = ${id}`;
+    const existing = existingSources[0] as Source | undefined;
 
     if (!existing) {
       return NextResponse.json({ error: 'Source not found' }, { status: 404 });
     }
 
-    // Delete the file
-    const filePath = path.join(process.cwd(), 'sources', existing.category, existing.filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    db.prepare('DELETE FROM sources WHERE id = ?').run(id);
+    await sql`DELETE FROM sources WHERE id = ${id}`;
 
     return NextResponse.json({ success: true });
   } catch (error) {

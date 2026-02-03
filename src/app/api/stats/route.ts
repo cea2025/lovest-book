@@ -1,63 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { sql, initDatabase } from '@/lib/db';
+
+// Ensure database is initialized
+let dbInitialized = false;
+async function ensureDb() {
+  if (!dbInitialized) {
+    await initDatabase();
+    dbInitialized = true;
+  }
+}
 
 // GET - Get statistics
 export async function GET(request: NextRequest) {
   try {
+    await ensureDb();
     const { searchParams } = new URL(request.url);
     const bookType = searchParams.get('bookType') || 'book';
 
     // Chapter stats
-    const chapterStats = db.prepare(`
+    const chapterStatsResult = await sql`
       SELECT 
         COUNT(*) as total_chapters,
-        SUM(word_count) as total_words,
+        COALESCE(SUM(word_count), 0) as total_words,
         SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft_count,
         SUM(CASE WHEN status = 'editing' THEN 1 ELSE 0 END) as editing_count,
         SUM(CASE WHEN status = 'ready' THEN 1 ELSE 0 END) as ready_count
       FROM chapters 
-      WHERE book_type = ?
-    `).get(bookType) as {
-      total_chapters: number;
-      total_words: number;
-      draft_count: number;
-      editing_count: number;
-      ready_count: number;
+      WHERE book_type = ${bookType}
+    `;
+    const chapterStats = chapterStatsResult[0] || {
+      total_chapters: 0,
+      total_words: 0,
+      draft_count: 0,
+      editing_count: 0,
+      ready_count: 0,
     };
 
     // Source stats
-    const sourceStats = db.prepare(`
+    const sourceStatsResult = await sql`
       SELECT 
         COUNT(*) as total_sources,
-        SUM(file_size) as total_size
+        COALESCE(SUM(file_size), 0) as total_size
       FROM sources
-    `).get() as {
-      total_sources: number;
-      total_size: number;
-    };
+    `;
+    const sourceStats = sourceStatsResult[0] || { total_sources: 0, total_size: 0 };
 
     // Quote stats
-    const quoteStats = db.prepare(`
+    const quoteStatsResult = await sql`
       SELECT COUNT(*) as total_quotes
       FROM quotes
-    `).get() as { total_quotes: number };
+    `;
+    const quoteStats = quoteStatsResult[0] || { total_quotes: 0 };
 
     // Version stats
-    const versionStats = db.prepare(`
+    const versionStatsResult = await sql`
       SELECT COUNT(*) as total_versions
       FROM versions
-      WHERE book_type = ?
-    `).get(bookType) as { total_versions: number };
+      WHERE book_type = ${bookType}
+    `;
+    const versionStats = versionStatsResult[0] || { total_versions: 0 };
 
     // Today's progress
     const today = new Date().toISOString().split('T')[0];
-    const todayStats = db.prepare(`
+    const todayStatsResult = await sql`
       SELECT 
-        SUM(words_written) as words_today,
-        SUM(duration_minutes) as minutes_today
+        COALESCE(SUM(words_written), 0) as words_today,
+        COALESCE(SUM(duration_minutes), 0) as minutes_today
       FROM writing_sessions
-      WHERE DATE(started_at) = ?
-    `).get(today) as { words_today: number | null; minutes_today: number | null };
+      WHERE DATE(started_at) = ${today}
+    `;
+    const todayStats = todayStatsResult[0] || { words_today: 0, minutes_today: 0 };
 
     return NextResponse.json({
       chapters: chapterStats,
