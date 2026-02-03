@@ -92,12 +92,12 @@ function htmlToMarkdown(html: string): string {
     .replace(/<blockquote><p>(.*?)<\/p><\/blockquote>/gi, '> $1\n\n')
     .replace(/<blockquote>(.*?)<\/blockquote>/gi, '> $1\n\n')
     // Lists
-    .replace(/<ul>(.*?)<\/ul>/gis, (match, content) => {
-      return content.replace(/<li>(.*?)<\/li>/gi, '- $1\n') + '\n';
+    .replace(/<ul>[\s\S]*?<\/ul>/gi, (match) => {
+      return match.replace(/<li>(.*?)<\/li>/gi, '- $1\n') + '\n';
     })
-    .replace(/<ol>(.*?)<\/ol>/gis, (match, content) => {
+    .replace(/<ol>[\s\S]*?<\/ol>/gi, (match) => {
       let index = 1;
-      return content.replace(/<li>(.*?)<\/li>/gi, () => `${index++}. $1\n`) + '\n';
+      return match.replace(/<li>(.*?)<\/li>/gi, () => `${index++}. $1\n`) + '\n';
     })
     // Horizontal rule
     .replace(/<hr\s*\/?>/gi, '---\n\n')
